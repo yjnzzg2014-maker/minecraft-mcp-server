@@ -5,6 +5,7 @@ export interface ServerConfig {
   host: string;
   port: number;
   username: string;
+  viewerPort?: number;
 }
 
 export function parseConfig(): ServerConfig {
@@ -23,6 +24,11 @@ export function parseConfig(): ServerConfig {
       type: 'string',
       description: 'Bot username',
       default: 'LLMBot'
+    })
+    .option('viewer-port', {
+      type: 'number',
+      description: 'Port for prismarine-viewer web server',
+      default: 3000
     })
     .help()
     .alias('help', 'h')

@@ -1,6 +1,6 @@
 import mineflayer from 'mineflayer';
 import pathfinderPkg from 'mineflayer-pathfinder';
-const { pathfinder, Movements } = pathfinderPkg;
+const { pathfinder, Movements, goals } = pathfinderPkg;
 import minecraftData from 'minecraft-data';
 
 const SUPPORTED_MINECRAFT_VERSION = '1.21.11';
@@ -11,6 +11,7 @@ interface BotConfig {
   host: string;
   port: number;
   username: string;
+  viewerPort?: number;
 }
 
 interface ConnectionCallbacks {
@@ -26,11 +27,13 @@ export class BotConnection {
   private isReconnecting = false;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly reconnectDelayMs: number;
+  private viewerPort: number = 3000;
 
   constructor(config: BotConfig, callbacks: ConnectionCallbacks, reconnectDelayMs = 2000) {
     this.config = config;
     this.callbacks = callbacks;
     this.reconnectDelayMs = reconnectDelayMs;
+    this.viewerPort = config.viewerPort || parseInt(process.env.VIEWER_PORT || '3000');
   }
 
   getBot(): mineflayer.Bot | null {
@@ -45,6 +48,10 @@ export class BotConnection {
     return this.config;
   }
 
+  getViewerPort(): number {
+    return this.viewerPort;
+  }
+
   isConnected(): boolean {
     return this.state === 'connected';
   }
@@ -54,12 +61,14 @@ export class BotConnection {
       host: this.config.host,
       port: this.config.port,
       username: this.config.username,
-      plugins: { pathfinder },
     };
 
     this.bot = mineflayer.createBot(botOptions);
     this.state = 'connecting';
     this.isReconnecting = false;
+
+    // Load pathfinder plugin manually after bot creation
+    this.bot.loadPlugin(pathfinder);
 
     this.registerEventHandlers(this.bot);
   }
@@ -69,9 +78,15 @@ export class BotConnection {
       this.state = 'connected';
       this.callbacks.onLog('info', 'Bot spawned in world');
 
-      const mcData = minecraftData(bot.version);
-      const defaultMove = new Movements(bot, mcData);
-      bot.pathfinder.setMovements(defaultMove);
+      // Initialize pathfinder with proper movements
+      try {
+        const mcData = minecraftData(bot.version);
+        const defaultMove = new Movements(bot, mcData);
+        bot.pathfinder.setMovements(defaultMove);
+        this.callbacks.onLog('info', 'Pathfinder initialized successfully');
+      } catch (e) {
+        this.callbacks.onLog('warn', `Failed to initialize pathfinder movements: ${(e as Error).message}`);
+      }
 
       bot.chat('LLM-powered bot ready to receive instructions!');
       this.callbacks.onLog('info', `Bot connected successfully. Username: ${this.config.username}, Server: ${this.config.host}:${this.config.port}`);

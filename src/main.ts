@@ -17,6 +17,8 @@ import { registerFlightTools } from './tools/flight-tools.js';
 import { registerGameStateTools } from './tools/gamestate-tools.js';
 import { registerCraftingTools } from './tools/crafting-tools.js';
 import { registerFurnaceTools } from './tools/furnace-tools.js';
+import { registerContainerTools } from './tools/container-tools.js';
+import { registerViewerTools, getViewerPortFromConfig } from './tools/viewer-tools.js';
 
 setupStdioFiltering();
 
@@ -33,7 +35,12 @@ async function main() {
   const messageStore = new MessageStore();
 
   const connection = new BotConnection(
-    config,
+    {
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      viewerPort: config.viewerPort
+    },
     {
       onLog: log,
       onChatMessage: (username, message) => messageStore.addMessage(username, message)
@@ -59,6 +66,8 @@ async function main() {
   registerGameStateTools(factory, getBot);
   registerCraftingTools(factory, getBot);
   registerFurnaceTools(factory, getBot);
+  registerContainerTools(factory, getBot);
+  registerViewerTools(factory, getBot, () => connection.getViewerPort());
 
   process.stdin.on('end', () => {
     connection.cleanup();
